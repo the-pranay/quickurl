@@ -1,11 +1,71 @@
+"use client";
+
+import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 
 export default function Home() {
+  const [urlInput, setUrlInput] = useState("");
+  const [customAlias, setCustomAlias] = useState("");
+  const [shortUrl, setShortUrl] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [copied, setCopied] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError("");
+    setShortUrl("");
+    setCopied(false);
+    
+    if (!urlInput) {
+      setError("Please enter a URL");
+      return;
+    }
+
+    setIsLoading(true);
+    
+    try {
+      const response = await fetch('/api/url', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          url: urlInput,
+          customAlias: customAlias || undefined,
+        }),
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to shorten URL');
+      }
+      
+      setShortUrl(data.shortUrl);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const copyToClipboard = () => {
+    navigator.clipboard.writeText(shortUrl)
+      .then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      })
+      .catch(err => {
+        console.error('Failed to copy: ', err);
+      });
+  };
+
   return (
     <>
       {/* Hero Section */}
-      <section className="bg-gradient-to-b from-white to-indigo-50 dark:from-gray-900 dark:to-gray-800 pt-[56px]">
+      <section id="hero" className="bg-gradient-to-b from-white to-indigo-50 dark:from-gray-900 dark:to-gray-800 pt-[56px]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 md:py-28">
           <div className="flex flex-col md:flex-row items-center">
             <div className="md:w-1/2 mb-10 md:mb-0 md:pr-10">
@@ -24,7 +84,7 @@ export default function Home() {
                   Get Started — It's Free
                 </Link>
                 <Link 
-                  href="/features"
+                  href="#features"
                   className="inline-flex justify-center items-center px-6 py-3 border border-gray-300 dark:border-gray-700 text-base font-medium rounded-md text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors duration-200"
                 >
                   Learn More
@@ -35,7 +95,7 @@ export default function Home() {
               <div className="relative w-full max-w-md">
                 <div className="absolute -inset-1 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-lg blur opacity-25"></div>
                 <div className="relative bg-white dark:bg-gray-800 p-6 rounded-lg shadow-xl">
-                  <div className="space-y-6">
+                  <form onSubmit={handleSubmit} className="space-y-6">
                     <div>
                       <label htmlFor="url" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                         Paste a long URL
@@ -45,6 +105,8 @@ export default function Home() {
                           type="url"
                           name="url"
                           id="url"
+                          value={urlInput}
+                          onChange={(e) => setUrlInput(e.target.value)}
                           className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-white rounded-md p-3"
                           placeholder="https://example.com/very/long/url/that/needs/shortening"
                         />
@@ -62,18 +124,69 @@ export default function Home() {
                           type="text"
                           name="custom"
                           id="custom"
+                          value={customAlias}
+                          onChange={(e) => setCustomAlias(e.target.value)}
                           className="focus:ring-indigo-500 focus:border-indigo-500 flex-1 block w-full rounded-none rounded-r-md sm:text-sm border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-white p-3"
                           placeholder="my-link"
                         />
                       </div>
                     </div>
+                    {error && (
+                      <div className="text-red-500 text-sm font-medium">
+                        {error}
+                      </div>
+                    )}
+                    {shortUrl && (
+                      <div className="bg-indigo-50 dark:bg-indigo-900/30 p-3 rounded-md">
+                        <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          Your shortened URL:
+                        </p>
+                        <div className="flex items-center">
+                          <a
+                            href={shortUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-indigo-600 dark:text-indigo-400 font-medium text-sm hover:underline truncate flex-1"
+                          >
+                            {shortUrl}
+                          </a>
+                          <button
+                            type="button"
+                            onClick={copyToClipboard}
+                            className="ml-2 p-1.5 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 rounded-md focus:outline-none"
+                            aria-label="Copy to clipboard"
+                          >
+                            {copied ? (
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                              </svg>
+                            ) : (
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+                              </svg>
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    )}
                     <button
-                      type="button"
-                      className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors duration-200"
+                      type="submit"
+                      disabled={isLoading}
+                      className={`w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white transition-colors duration-200 ${
+                        isLoading
+                          ? "bg-indigo-400 cursor-not-allowed"
+                          : "bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                      }`}
                     >
-                      Shorten URL
+                      {isLoading ? (
+                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                      ) : null}
+                      {isLoading ? "Shortening..." : "Shorten URL"}
                     </button>
-                  </div>
+                  </form>
                 </div>
               </div>
             </div>
@@ -98,7 +211,7 @@ export default function Home() {
       </section>
 
       {/* Features Section */}
-      <section className="py-16 md:py-24 bg-white dark:bg-gray-900">
+      <section id="features" className="py-16 md:py-24 bg-white dark:bg-gray-900">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-4">Powerful Features</h2>
